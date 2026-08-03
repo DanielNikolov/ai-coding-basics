@@ -37,10 +37,13 @@ app.post('/messages', (req, res) => {
       data = JSON.parse(fileContent);
     }
 
+    const now = new Date();
+    const timestamp = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+
     const entry = {
       author: author.trim(),
       message: message.trim(),
-      createdAt: new Date().toISOString(),
+      timestamp,
     };
 
     data.push(entry);
