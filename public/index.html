@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Messages App</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: system-ui, sans-serif;
+        background: #f4f6f9;
+        color: #222;
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        /* prevent horizontal overflow on small screens */
+        overflow-x: hidden;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 2rem;
+        font-size: clamp(1.2rem, 5vw, 1.6rem);
+        color: #2c3e50;
+      }
+
+      .sections {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 300px; /* shrink to single column when viewport is narrow */
+        background: #fff;
+        border-radius: 10px;
+        padding: 1.75rem 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,.08);
+        min-width: 0; /* prevent flex blowout */
+      }
+
+      .card h2 {
+        font-size: 1.1rem;
+        margin-bottom: 1.25rem;
+        color: #34495e;
+        border-bottom: 2px solid #e8ecf0;
+        padding-bottom: .6rem;
+      }
+
+      label {
+        display: block;
+        font-size: .9rem;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: .3rem;
+      }
+
+      input[type="text"],
+      input[type="date"],
+      textarea {
+        width: 100%;
+        /* min 44px touch target height */
+        padding: .65rem .75rem;
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        /* prevent iOS from zooming on focus (font-size >= 16px) */
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        transition: border-color .2s;
+        background: #fafbfc;
+        /* prevent inputs overflowing card on mobile */
+        max-width: 100%;
+      }
+
+      input:focus, textarea:focus {
+        outline: none;
+        border-color: #3498db;
+        background: #fff;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 100px;
+      }
+
+      button {
+        width: 100%;
+        /* min 44px touch target height */
+        min-height: 44px;
+        padding: .65rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .2s, opacity .2s;
+        /* prevent text from being too small on mobile */
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+
+      .btn-submit { background: #27ae60; color: #fff; }
+      .btn-submit:hover { background: #219150; }
+      .btn-search { background: #3498db; color: #fff; }
+      .btn-search:hover { background: #2380c0; }
+      button:disabled { opacity: .6; cursor: not-allowed; }
+
+      .alert {
+        font-size: .9rem;
+        padding: .6rem .75rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        display: none;
+        line-height: 1.4;
+      }
+
+      .alert.success { background: #d4edda; color: #155724; display: block; }
+      .alert.error   { background: #f8d7da; color: #721c24; display: block; }
+
+      /* Results */
+      .results-header {
+        font-size: .85rem;
+        color: #666;
+        margin-bottom: .75rem;
+      }
+
+      .message-list { list-style: none; }
+
+      .message-item {
+        border: 1px solid #e8ecf0;
+        border-radius: 7px;
+        padding: .75rem 1rem;
+        margin-bottom: .6rem;
+        background: #fafbfc;
+      }
+
+      .message-item .meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: .25rem;
+        font-size: .78rem;
+        color: #888;
+        margin-bottom: .35rem;
+      }
+
+      .message-item .author { font-weight: 700; color: #2c3e50; }
+      .message-item .body   { font-size: .9rem; word-break: break-word; }
+
+      .no-results { color: #888; font-size: .9rem; text-align: center; padding: 1.5rem 0; }
+
+      /* Pagination */
+      .pagination {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: .5rem;
+        margin-top: 1rem;
+      }
+
+      .pagination button {
+        width: auto;
+        min-height: 40px;
+        padding: .4rem 1rem;
+        font-size: .9rem;
+        background: #ecf0f1;
+        color: #333;
+        border-radius: 5px;
+      }
+
+      .pagination button:hover:not(:disabled) { background: #dde1e3; }
+      .page-info { font-size: .85rem; color: #555; }
+
+      /* Tighten layout on small screens */
+      @media (max-width: 480px) {
+        body { padding: 1rem .75rem; }
+
+        .card { padding: 1.25rem 1rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Messages App</h1>
+
+    <div class="sections">
+      <!-- ── SECTION 1 : Post a message ── -->
+      <div class="card">
+        <h2>Post a Message</h2>
+
+        <div id="post-alert" class="alert" role="alert"></div>
+
+        <label for="post-name">Name</label>
+        <input type="text" id="post-name" placeholder="First Last" />
+
+        <label for="post-message">Message</label>
+        <textarea id="post-message" placeholder="Enter your message…"></textarea>
+
+        <button class="btn-submit" id="post-btn">Submit</button>
+      </div>
+
+      <!-- ── SECTION 2 : Search messages ── -->
+      <div class="card">
+        <h2>Search Messages</h2>
+
+        <div id="search-alert" class="alert" role="alert"></div>
+
+        <label for="search-name">Name</label>
+        <input type="text" id="search-name" placeholder="First Last (optional)" />
+
+        <label for="search-date">Date</label>
+        <input type="date" id="search-date" />
+
+        <button class="btn-search" id="search-btn">Search</button>
+
+        <div id="results-area" style="margin-top:1.25rem; display:none;">
+          <p class="results-header" id="results-summary"></p>
+          <ul class="message-list" id="message-list"></ul>
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── helpers ──────────────────────────────────────────────
+      function showAlert(elId, type, text) {
+        const el = document.getElementById(elId);
+        el.className = `alert ${type}`;
+        el.textContent = text;
+      }
+
+      function clearAlert(elId) {
+        const el = document.getElementById(elId);
+        el.className = 'alert';
+        el.textContent = '';
+      }
+
+      // HTML date input returns yyyy-MM-dd; API expects dd-MM-yyyy
+      function toApiDate(isoDate) {
+        if (!isoDate) return null;
+        const [y, m, d] = isoDate.split('-');
+        return `${d}-${m}-${y}`;
+      }
+
+      // ── Section 1 : POST ─────────────────────────────────────
+      document.getElementById('post-btn').addEventListener('click', async () => {
+        clearAlert('post-alert');
+        const author  = document.getElementById('post-name').value.trim();
+        const message = document.getElementById('post-message').value.trim();
+
+        if (!author || !message) {
+          showAlert('post-alert', 'error', 'Both name and message are required.');
+          return;
+        }
+
+        const btn = document.getElementById('post-btn');
+        btn.disabled = true;
+
+        try {
+          const res = await fetch('/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author, message }),
+          });
+
+          const data = await res.json();
+
+          if (res.status === 201) {
+            showAlert('post-alert', 'success', 'Message posted successfully!');
+            document.getElementById('post-name').value    = '';
+            document.getElementById('post-message').value = '';
+          } else {
+            showAlert('post-alert', 'error', data.error ?? 'Something went wrong.');
+          }
+        } catch {
+          showAlert('post-alert', 'error', 'Network error. Could not reach the server.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // ── Section 2 : GET (with pagination) ───────────────────
+      let currentPage = 1;
+      const PAGE_SIZE = 5;
+
+      async function fetchMessages(page) {
+        clearAlert('search-alert');
+
+        const user      = document.getElementById('search-name').value.trim();
+        const dateRaw   = document.getElementById('search-date').value;
+        const timestamp = toApiDate(dateRaw);
+
+        if (!user && !timestamp) {
+          showAlert('search-alert', 'error', 'Please provide at least a name or a date.');
+          return;
+        }
+
+        const params = new URLSearchParams({ page, size: PAGE_SIZE });
+        if (user)      params.set('user', user);
+        if (timestamp) params.set('timestamp', timestamp);
+
+        const btn = document.getElementById('search-btn');
+        btn.disabled = true;
+
+        try {
+          const res  = await fetch(`/messages?${params}`);
+          const data = await res.json();
+
+          if (!res.ok) {
+            showAlert('search-alert', 'error', data.error ?? 'Something went wrong.');
+            document.getElementById('results-area').style.display = 'none';
+            return;
+          }
+
+          renderResults(data);
+          currentPage = page;
+        } catch {
+          showAlert('search-alert', 'error', 'Network error. Could not reach the server.');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      function renderResults({ total, page, size, totalPages, data }) {
+        const area    = document.getElementById('results-area');
+        const summary = document.getElementById('results-summary');
+        const list    = document.getElementById('message-list');
+        const paging  = document.getElementById('pagination');
+
+        area.style.display = 'block';
+
+        if (total === 0) {
+          summary.textContent = 'No messages found.';
+          list.innerHTML  = '<li class="no-results">No results match your search.</li>';
+          paging.innerHTML = '';
+          return;
+        }
+
+        const from = (page - 1) * size + 1;
+        const to   = Math.min(page * size, total);
+        summary.textContent = `Showing ${from}–${to} of ${total} message(s)`;
+
+        list.innerHTML = data.map(entry => `
+          <li class="message-item">
+            <div class="meta">
+              <span class="author">${escHtml(entry.author)}</span>
+              <span>${escHtml(entry.timestamp)}</span>
+            </div>
+            <div class="body">${escHtml(entry.message)}</div>
+          </li>
+        `).join('');
+
+        paging.innerHTML = '';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Prev';
+        prevBtn.disabled = page <= 1;
+        prevBtn.addEventListener('click', () => fetchMessages(currentPage - 1));
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'page-info';
+        pageInfo.textContent = `Page ${page} of ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next →';
+        nextBtn.disabled = page >= totalPages;
+        nextBtn.addEventListener('click', () => fetchMessages(currentPage + 1));
+
+        paging.append(prevBtn, pageInfo, nextBtn);
+      }
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      document.getElementById('search-btn').addEventListener('click', () => {
+        currentPage = 1;
+        fetchMessages(1);
+      });
+    </script>
+  </body>
+</html>
